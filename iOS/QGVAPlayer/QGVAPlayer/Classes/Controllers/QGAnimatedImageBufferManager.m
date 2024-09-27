@@ -77,6 +77,11 @@
     return frame;
 }
 
+/// 清除动画帧缓存
+- (void)clearViedeFrames {
+    [_buffers removeAllObjects];
+}
+
 /**
  判断当前缓冲区是否被填满
  

@@ -38,6 +38,8 @@ typedef NS_ENUM(NSUInteger, HWDMP4EBOperationType) {
 - (void)viewDidFinishPlayMP4:(NSInteger)totalFrameCount view:(VAPView *)container;
 - (void)viewDidFailPlayMP4:(NSError *)error;
 
+- (NSInteger)viewFrameConvert:(NSInteger)frameIndex view:(VAPView *)container;
+
 //vap APIs
 - (NSString *)contentForVapTag:(NSString *)tag resource:(QGVAPSourceInfo *)info;        //替换配置中的资源占位符（不处理直接返回tag）
 - (void)loadVapImageWithURL:(NSString *)urlStr context:(NSDictionary *)context completion:(VAPImageCompletionBlock)completionBlock; //由于组件内不包含网络图片加载的模块，因此需要外部支持图片加载。
@@ -56,6 +58,7 @@ typedef NS_ENUM(NSUInteger, HWDMP4EBOperationType) {
 - (void)playHWDMp4:(NSString *)filePath;
 - (void)playHWDMP4:(NSString *)filePath delegate:(id<HWDMP4PlayDelegate>)delegate;
 - (void)playHWDMP4:(NSString *)filePath repeatCount:(NSInteger)repeatCount delegate:(id<HWDMP4PlayDelegate>)delegate;
+- (void)playHWDMP4:(NSString *)filePath repeatCount:(NSInteger)repeatCount canSeek:(BOOL)seek delegate:(id<HWDMP4PlayDelegate>)delegate;
 
 - (void)stopHWDMP4;
 

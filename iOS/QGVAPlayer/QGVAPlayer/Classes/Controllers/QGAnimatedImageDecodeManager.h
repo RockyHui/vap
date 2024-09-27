@@ -46,6 +46,7 @@
 @interface QGAnimatedImageDecodeManager : NSObject
 
 @property (nonatomic, weak) id<QGAnimatedImageDecoderDelegate> decoderDelegate;
+@property (nonatomic, assign) BOOL shouldCacheBuffers;
 
 - (instancetype)initWith:(QGBaseDFileInfo *)fileInfo
                   config:(QGAnimatedImageDecodeConfig *)config
@@ -58,5 +59,6 @@
 - (void)tryToPauseAudioPlay;
 - (void)tryToResumeAudioPlay;
 - (BOOL)containsThisDeocder:(id)decoder;
+- (void)clearDecodeBuffers;
 
 @end

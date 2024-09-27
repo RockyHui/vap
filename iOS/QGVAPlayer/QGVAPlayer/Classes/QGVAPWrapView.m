@@ -59,7 +59,7 @@
     self.delegate = delegate;
     
     [self initVAPViewIfNeed];
-    [self.vapView playHWDMP4:filePath repeatCount:repeatCount delegate:self];
+    [self.vapView playHWDMP4:filePath repeatCount:repeatCount canSeek:NO delegate:self];
 }
 
 - (void)stopHWDMP4 {

@@ -66,7 +66,12 @@
             return nil;
         }
         BOOL decodeFinish = [self checkIfDecodeFinish:frameIndex];
-        QGBaseAnimatedImageFrame *frame = [_bufferManager popVideoFrame];
+        QGBaseAnimatedImageFrame *frame;
+        if (_shouldCacheBuffers) { //需要缓存的话
+            frame = [_bufferManager getBufferedFrame:frameIndex];
+        } else {
+            frame = [_bufferManager popVideoFrame];
+        }
         if (frame) {
             // pts顺序
             frame.frameIndex = frameIndex;
@@ -118,6 +123,11 @@
         return;
     }
     [_audioPlayer play];
+}
+
+- (void)clearDecodeBuffers {
+    VAP_Info(kQGVAPModuleCommon, @"hwd clear Buffers");
+    [_bufferManager clearViedeFrames];
 }
 
 #pragma mark - private methods

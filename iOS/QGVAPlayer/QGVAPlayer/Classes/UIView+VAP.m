@@ -58,6 +58,7 @@ NSInteger const VapMaxCompatibleVersion = 2;
 @property (nonatomic, strong) dispatch_queue_t              vap_renderQueue;            //播放队列
 @property (nonatomic, assign) BOOL                          vap_enableOldVersion;       //标记是否兼容不含vapc box的素材播放
 @property (nonatomic, assign) BOOL                          vap_isMute;                 //标记是否禁止音频播放
+@property (nonatomic, assign) BOOL                          vap_canSeek;                //标记是否可以seek
 @end
 
 @implementation UIView (VAP)
@@ -137,6 +138,7 @@ NSInteger const VapMaxCompatibleVersion = 2;
         [self.vap_metalView dispose];
     }
     [self.hwd_decodeManager tryToStopAudioPlay];
+    [self.hwd_decodeManager clearDecodeBuffers];
     [self.hwd_callbackQueue addOperationWithBlock:^{
         //此处必须延迟释放，避免野指针
         if ([self.hwd_Delegate respondsToSelector:@selector(viewDidStopPlayMP4:view:)]) {
@@ -167,6 +169,7 @@ NSInteger const VapMaxCompatibleVersion = 2;
                        fps:self.hwd_fps
                  blendMode:self.hwd_blendMode
                repeatCount:currentCount
+                   canSeek:self.vap_canSeek
                   delegate:self.hwd_Delegate];
         return ;
     }
@@ -281,7 +284,7 @@ NSInteger const VapMaxCompatibleVersion = 2;
  播放一遍，alpha数据在左边,设置回调
  */
 - (void)playHWDMP4:(NSString *)filePath delegate:(id<HWDMP4PlayDelegate>)delegate {
-    [self p_playHWDMP4:filePath fps:0 blendMode:QGHWDTextureBlendMode_AlphaLeft repeatCount:0 delegate:delegate];
+    [self p_playHWDMP4:filePath fps:0 blendMode:QGHWDTextureBlendMode_AlphaLeft repeatCount:0 canSeek:NO delegate:delegate];
 }
 
 /**
@@ -289,14 +292,15 @@ NSInteger const VapMaxCompatibleVersion = 2;
  
  alpha数据在左边
  */
-- (void)playHWDMP4:(NSString *)filePath repeatCount:(NSInteger)repeatCount delegate:(id<HWDMP4PlayDelegate>)delegate {
-    [self p_playHWDMP4:filePath fps:0 blendMode:QGHWDTextureBlendMode_AlphaLeft repeatCount:repeatCount delegate:delegate];
+- (void)playHWDMP4:(NSString *)filePath repeatCount:(NSInteger)repeatCount canSeek:(BOOL)seek delegate:(id<HWDMP4PlayDelegate>)delegate {
+    [self p_playHWDMP4:filePath fps:0 blendMode:QGHWDTextureBlendMode_AlphaLeft repeatCount:repeatCount canSeek:seek delegate:delegate];
 }
 
 - (void)p_playHWDMP4:(NSString *)filePath
                fps:(NSInteger)fps
          blendMode:(QGHWDTextureBlendMode)mode
        repeatCount:(NSInteger)repeatCount
+             canSeek:(BOOL)seek
           delegate:(id<HWDMP4PlayDelegate>)delegate {
     
     VAP_Info(kQGVAPModuleCommon, @"try to display mp4:%@ blendMode:%@ fps:%@ repeatCount:%@", filePath, @(mode), @(fps), @(repeatCount));
@@ -315,6 +319,7 @@ NSInteger const VapMaxCompatibleVersion = 2;
     self.hwd_blendMode = mode;
     self.hwd_fps = fps;
     self.hwd_repeatCount = repeatCount;
+    self.vap_canSeek = seek;
     self.hwd_Delegate = delegate;
     if (self.hwd_Delegate && !self.hwd_callbackQueue) {
         NSOperationQueue *queue = [[NSOperationQueue alloc] init];
@@ -368,6 +373,7 @@ NSInteger const VapMaxCompatibleVersion = 2;
         self.vap_renderQueue = dispatch_queue_create("com.qgame.vap.render", DISPATCH_QUEUE_SERIAL);
     }
     self.hwd_decodeManager = [[QGAnimatedImageDecodeManager alloc] initWith:self.hwd_fileInfo config:self.hwd_decodeConfig delegate:self];
+    self.hwd_decodeManager.shouldCacheBuffers = self.vap_canSeek;
     [self.hwd_configManager loadConfigResources]; //必须按先加载必要资源才能播放 - onVAPConfigResourcesLoaded
 }
 
@@ -425,7 +431,9 @@ NSInteger const VapMaxCompatibleVersion = 2;
     if (!self.hwd_currentFrame) {
         nextIndex = 0;
     }
-    
+    if ([self.hwd_Delegate respondsToSelector:@selector(viewFrameConvert:view:)]) {
+        nextIndex = [self.hwd_Delegate viewFrameConvert: nextIndex view:self];
+    }
     QGMP4AnimatedImageFrame *nextFrame = (QGMP4AnimatedImageFrame *)[self.hwd_decodeManager consumeDecodedFrame:nextIndex];
     //没取到预期的帧
     if (!nextFrame || nextFrame.frameIndex != nextIndex || ![nextFrame isKindOfClass:[QGMP4AnimatedImageFrame class]]) {
@@ -498,6 +506,11 @@ NSInteger const VapMaxCompatibleVersion = 2;
 - (void)setMute:(BOOL)isMute {
     self.vap_isMute = isMute;
 }
+
+- (void)setCanSeek:(BOOL)seek {
+    self.vap_canSeek = seek;
+}
+
 #pragma mark - delegate
 
 #pragma clang diagnostic push
@@ -619,6 +632,7 @@ HWDSYNTH_DYNAMIC_PROPERTY_OBJECT(hwd_configManager, setHwd_configManager, OBJC_A
 HWDSYNTH_DYNAMIC_PROPERTY_OBJECT(vap_renderQueue, setVap_renderQueue, OBJC_ASSOCIATION_RETAIN)
 HWDSYNTH_DYNAMIC_PROPERTY_CTYPE(vap_enableOldVersion, setVap_enableOldVersion, BOOL)
 HWDSYNTH_DYNAMIC_PROPERTY_CTYPE(vap_isMute, setVap_isMute, BOOL)
+HWDSYNTH_DYNAMIC_PROPERTY_CTYPE(vap_canSeek, setVap_canSeek, BOOL)
 @end
 
 
@@ -723,7 +737,7 @@ HWDSYNTH_DYNAMIC_PROPERTY_CTYPE(vap_isMute, setVap_isMute, BOOL)
  播放一遍，alpha数据在左边,设置回调
  */
 - (void)playHWDMP4:(NSString *)filePath fps:(NSInteger)fps delegate:(id<HWDMP4PlayDelegate>)delegate {
-    [self p_playHWDMP4:filePath fps:fps blendMode:QGHWDTextureBlendMode_AlphaLeft repeatCount:0 delegate:delegate];
+    [self p_playHWDMP4:filePath fps:fps blendMode:QGHWDTextureBlendMode_AlphaLeft repeatCount:0 canSeek: NO delegate:delegate];
 }
 
 /**
@@ -733,7 +747,7 @@ HWDSYNTH_DYNAMIC_PROPERTY_CTYPE(vap_isMute, setVap_isMute, BOOL)
  alpha数据在左边
  */
 - (void)playHWDMP4:(NSString *)filePath fps:(NSInteger)fps repeatCount:(NSInteger)repeatCount delegate:(id<HWDMP4PlayDelegate>)delegate {
-    [self p_playHWDMP4:filePath fps:fps blendMode:QGHWDTextureBlendMode_AlphaLeft repeatCount:repeatCount delegate:delegate];
+    [self p_playHWDMP4:filePath fps:fps blendMode:QGHWDTextureBlendMode_AlphaLeft repeatCount:repeatCount canSeek:NO delegate:delegate];
 
 }
 
@@ -743,7 +757,7 @@ HWDSYNTH_DYNAMIC_PROPERTY_CTYPE(vap_isMute, setVap_isMute, BOOL)
  播放一遍
  */
 - (void)playHWDMP4:(NSString *)filePath blendMode:(QGHWDTextureBlendMode)mode delegate:(id<HWDMP4PlayDelegate>)delegate {
-    [self p_playHWDMP4:filePath fps:0 blendMode:mode repeatCount:0 delegate:delegate];
+    [self p_playHWDMP4:filePath fps:0 blendMode:mode repeatCount:0 canSeek:NO delegate:delegate];
 }
 
 /**
@@ -757,7 +771,7 @@ HWDSYNTH_DYNAMIC_PROPERTY_CTYPE(vap_isMute, setVap_isMute, BOOL)
  @note 素材文件需要按照规范生成
  */
 - (void)playHWDMP4:(NSString *)filePath blendMode:(QGHWDTextureBlendMode)mode repeatCount:(NSInteger)repeatCount delegate:(id<HWDMP4PlayDelegate>)delegate {
-    [self p_playHWDMP4:filePath fps:0 blendMode:mode repeatCount:repeatCount delegate:delegate];
+    [self p_playHWDMP4:filePath fps:0 blendMode:mode repeatCount:repeatCount canSeek:NO delegate:delegate];
 }
 
 /**
@@ -767,7 +781,7 @@ HWDSYNTH_DYNAMIC_PROPERTY_CTYPE(vap_isMute, setVap_isMute, BOOL)
  播放一遍
  */
 - (void)playHWDMP4:(NSString *)filePath fps:(NSInteger)fps blendMode:(QGHWDTextureBlendMode)mode delegate:(id<HWDMP4PlayDelegate>)delegate {
-    [self p_playHWDMP4:filePath fps:fps blendMode:mode repeatCount:0 delegate:delegate];
+    [self p_playHWDMP4:filePath fps:fps blendMode:mode repeatCount:0 canSeek:NO delegate:delegate];
 }
 
 /**
@@ -776,7 +790,7 @@ HWDSYNTH_DYNAMIC_PROPERTY_CTYPE(vap_isMute, setVap_isMute, BOOL)
  
  */
 - (void)playHWDMP4:(NSString *)filePath fps:(NSInteger)fps blendMode:(QGHWDTextureBlendMode)mode repeatCount:(NSInteger)repeatCount delegate:(id<HWDMP4PlayDelegate>)delegate {
-    [self p_playHWDMP4:filePath fps:fps blendMode:mode repeatCount:repeatCount delegate:delegate];
+    [self p_playHWDMP4:filePath fps:fps blendMode:mode repeatCount:repeatCount canSeek:NO delegate:delegate];
 }
 
 @end

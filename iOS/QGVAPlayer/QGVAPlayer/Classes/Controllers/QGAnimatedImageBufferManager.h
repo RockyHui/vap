@@ -25,5 +25,6 @@
 - (QGBaseAnimatedImageFrame *)getBufferedFrame:(NSInteger)frameIndex;
 - (BOOL)isBufferFull;
 - (QGBaseAnimatedImageFrame *)popVideoFrame;
+- (void)clearViedeFrames;
 
 @end
