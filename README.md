@@ -1,65 +1,35 @@
-# VAP
+# VAP支持跳帧播放 
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](http://opensource.org/licenses/MIT)
+## 背景
 
-简体中文 | [English](./README_en.md)
+VAP是腾讯开源的一款跨平台的动画播放方案，拥有优秀的性能，可实现复杂的动画效果。具体功能特色可以查看官方介绍：[github地址](https://github.com/Tencent/vap)
 
-VAP（Video Animation Player）是企鹅电竞开发，用于播放酷炫动画的实现方案。
+————————————————————————————
 
-* 相比Webp, Apng动图方案，具有高压缩率(素材更小)、硬件解码(解码更快)的优点
-* 相比Lottie，能实现更复杂的动画效果(比如粒子特效)
+查看vap源码接口发现，目前只支持一个动画从头到位完整的播放，如果我们想在播放过程中去控制跳到任意一帧，这种场景目前是不支持的。因此对这个播放框架进行了底层逻辑的调整，使得可以支持跳帧播放。
 
+## 用法
+### 1.播放本地mp4格式的动画资源
 
-项目详细介绍请参考 [Introduction.md](./Introduction.md)
+调用动画播放的方法和之前使用方式一样，只不过多了一个`canSeek`的参数，表示是否支持跳帧操作。
 
+```
+let path = Bundle.main.path(forResource: "animation", ofType: "mp4")
+loadingAnimationView.playHWDMP4(path, repeatCount: 0, canSeek: true, delegate: self)
+```
 
-特效展示：
+### 2.在代理方法中实现跳帧
+```
+func viewFrameConvert(_ frameIndex: Int, view container: UIView!) -> Int {
+        if frameIndex == 30 { //播放到第30帧，跳转到第10帧循环播放
+        	// ..........
+        	return 10
+        }
+        return frameIndex
+    }
+```
+调整后的代码多增加了一个代理方法`viewFrameConvert(frameIndex: container: )`，用于控制跳帧行为。
 
-[展示主页](https://egame.qq.com/vap)
+当每次播放下一帧的时候，都会调用该方法，询问是否继续播放当前帧还是跳到指定帧，如果不需要跳帧操作，就返回当前的`frameIndex`即可；需要跳帧，则返回指定的帧序列号。
 
-![](./images/anim1.gif)
-
-而且VAP还能在动画中融入自定义的属性（比如用户名称, 头像）
-
-![](./images/anim2.gif)
-
-
-
-## 性能简述
-
-
--|文件大小|解码方式|特效支持
----|---|---|---
-Lottie|无法导出|软解|无粒子特效
-GIF|4.6M|软解|只支持8位色彩
-Apng|10.6M|软解|全支持
-Webp|9.2M|软解|全支持
-mp4|1.5M|硬解|无透明背景
-VAP|***1.5M***|***硬解***|***全支持***
-
-
-实验参数参考 [Introduction.md](./Introduction.md)
-
-
-## 平台支持
-
-支持：[Android](./Android), [iOS](./iOS), [web](./web). 接入说明在对应平台目录中
-
-素材制作工具：[VapTool](./tool) (工具使用说明在tool目录下)
-
-播放预览工具：[Mac](https://github.com/Tencent/vap/releases/download/VapPreview1.2.0/vap-player_mac_1.2.0.zip), [Windows](https://github.com/Tencent/vap/releases/download/VapPreview1.2.0/vap-player_1.2.0.exe)
-
-
-## 已接入APP
-
-![app](https://github.com/Tencent/vap/assets/3285051/3e5c9ce1-f654-413e-8c5e-ecb2088ed3fe)
-
-
-## FAQ
-
-[常见问题解答](https://github.com/Tencent/vap/wiki/FAQ)
-
-
-## License
-
-VAP is under the MIT license. See the [LICENSE](./LICENSE.txt) file for details.
+因此便是实现了调整播放和循环播放动画中某一段动画的效果。
